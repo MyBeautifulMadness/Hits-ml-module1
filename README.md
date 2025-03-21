@@ -9,14 +9,36 @@
 
 ## How to
 
-### **To be continued...**
+
+### Train
+
+Для обучения модели выполните следующую команду из корневой папки репозитория:
+
+```
+python model.py train --dataset=data/train.csv 
+```
+
+- Модель будет обучена с использованием предоставленного набора данных и сохранена для будущего использования в `model/catboost_model.cbm`.
+
+### Prediction
+
+Чтобы сгенерировать прогнозы с использованием обученной модели, выполните следующую команду из корневой папки репозитория:
+
+```
+python model.py predict --dataset=data/test.csv 
+```
+
+- Прогнозы будут сгенерированы и сохранены в `data/results.csv`.
 
 ---
 
 ## Resources
 
-I used for this project:
-- **Руководство по оформлению Markdown файлов**: [тык]([https://python-poetry.org/docs/](https://gist.github.com/Jekins/2bf2d0638163f1294637))
-- **To be continued...**
-
+### Читал, изучал, смотрел:
+- **Руководство по оформлению Markdown файлов**: [тык](https://gist.github.com/Jekins/2bf2d0638163f1294637)
+- **Соревнование Титаник Kaggle ML на Python. Машинное обучение**: [тык](https://www.youtube.com/watch?v=p6hutPbKPNQ)
+- **Открытый курс машинного обучения**: [тык](https://habr.com/ru/companies/ods/articles/322626/)
+- **Руководство по Jupyter Notebook для начинающих**: [тык](https://pythonru.com/baza-znanij/jupyter-notebook-dlja-nachinajushhih)
+- **Poetry**: [тык](https://python-poetry.org)
+  
 ---
