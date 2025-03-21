@@ -4,16 +4,18 @@ import argparse
 import os
 from catboost import CatBoostClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix, accuracy_score,classification_report
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
 from sklearn.preprocessing import OneHotEncoder
 import pickle
+import optuna
 
 MODEL_PATH = "model/catboost_model.cbm"
+OPTUNA_PARAMS_PATH = "model/optuna_params.pkl"
 
-
-class TitanicClassifier:
+class My_Classifier_Model:
     def __init__(self):
         self.model = CatBoostClassifier()
+
         if os.path.exists(MODEL_PATH):
             self.model.load_model(MODEL_PATH)
             print(f"Модель загружена из {MODEL_PATH}")
@@ -26,6 +28,13 @@ class TitanicClassifier:
             print("OneHotEncoder загружен.")
         else:
             print("OneHotEncoder не найден! Нужно обучить модель.")
+
+        if os.path.exists(OPTUNA_PARAMS_PATH):
+            with open(OPTUNA_PARAMS_PATH, "rb") as f:
+                self.best_params = pickle.load(f)
+            print("Лучшие параметры загружены.")
+        else:
+            self.best_params = None
 
     def preprocess(self, df, training=True):
         exclude_cols = ["PassengerId", "Cabin", "Name", "Age"]
@@ -77,33 +86,52 @@ class TitanicClassifier:
         else:
             return X, X_columns
 
+    def objective(self, trial):
+        params = {
+            "iterations": trial.suggest_int("iterations", 200, 1000, step=50),
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
+            "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1.0, 10.0),
+            "bagging_temperature": trial.suggest_float("bagging_temperature", 0.1, 10.0),
+            # Случайное подмешивание данных
+            "random_strength": trial.suggest_float("random_strength", 0.1, 10.0),
+            "one_hot_max_size": trial.suggest_int("one_hot_max_size", 2, 10),
+            # Количество категорий для One-Hot Encoding
+            "leaf_estimation_method": trial.suggest_categorical("leaf_estimation_method", ["Newton", "Gradient"]),
+            # Метод обновления весов
+            "depth": trial.suggest_int("depth", 4, 10),
+            "border_count": trial.suggest_int("border_count", 32, 255),
+            "loss_function": "Logloss"
+        }
+
+        X_train, X_valid, y_train, y_valid, _ = self.preprocess(self.df, training=True)
+
+        model = CatBoostClassifier(**params, cat_features=None, verbose=False)
+        model.fit(X_train, y_train, eval_set=(X_valid, y_valid), early_stopping_rounds=50, verbose=False)
+
+        preds = model.predict(X_valid)
+        accuracy = accuracy_score(y_valid, preds)
+        return accuracy
+
     def train(self, dataset_path):
-        df = pd.read_csv(dataset_path)
-        X_train, X_valid, y_train, y_valid, X_columns = self.preprocess(df, training=True)
+        self.df = pd.read_csv(dataset_path)
 
-        self.model = CatBoostClassifier(
-            random_seed=63,
-            iterations=1000,
-            learning_rate=0.03,
-            l2_leaf_reg=3,
-            bagging_temperature=1,
-            random_strength=1,
-            one_hot_max_size=2,
-            leaf_estimation_method='Newton'
-        )
+        study = optuna.create_study(direction="maximize")
+        study.optimize(self.objective, n_trials=20)
 
-        self.model.fit(
-            X_train, y_train,
-            verbose=False,
-            eval_set=(X_valid, y_valid)
-        )
+        self.best_params = study.best_params
+        with open(OPTUNA_PARAMS_PATH, "wb") as f:
+            pickle.dump(self.best_params, f)
+        print(f"Оптимизация завершена! Лучшие параметры: {self.best_params}")
 
+        X_train, X_valid, y_train, y_valid, _ = self.preprocess(self.df, training=True)
+        self.model = CatBoostClassifier(**self.best_params, cat_features=None)
+        self.model.fit(X_train, y_train, eval_set=(X_valid, y_valid), early_stopping_rounds=50, verbose=False)
+
+        os.makedirs("model", exist_ok=True)
         self.model.save_model(MODEL_PATH)
 
         with open("model/ohe.pkl", "wb") as f:
             pickle.dump(self.ohe, f)
-        print("OHE-кодировщик сохранён в 'model/ohe.pkl'")
-
         print(f"Модель обучена и сохранена в {MODEL_PATH}")
 
     def predict(self, dataset_path):
@@ -124,7 +152,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", required=True, help="Путь к CSV-файлу с данными")
 
     args = parser.parse_args()
-    classifier = TitanicClassifier()
+    classifier = My_Classifier_Model()
 
     if args.command == "train":
         classifier.train(args.dataset)
