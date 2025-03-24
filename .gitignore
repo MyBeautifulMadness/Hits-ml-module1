@@ -15,6 +15,3 @@ venv/
 /data/
 ./model/
 ./logs/
-
-# Virtual Environment
-poetry.lock
