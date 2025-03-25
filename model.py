@@ -101,6 +101,7 @@ class My_Classifier_Model:
             if training:
                 y = df['Transported'].values
                 X_train, X_valid, y_train, y_valid = train_test_split(X, y, train_size=0.8, random_state=42)
+
                 return X_train, X_valid, y_train, y_valid, X_columns
             else:
                 return X, X_columns
@@ -130,6 +131,7 @@ class My_Classifier_Model:
 
         preds = model.predict(X_valid)
         accuracy = accuracy_score(y_valid, preds)
+
         return accuracy
 
     def train(self, dataset_path):
@@ -139,7 +141,7 @@ class My_Classifier_Model:
             self.df = pd.read_csv(dataset_path)
 
             study = optuna.create_study(direction="maximize")
-            study.optimize(self.objective, n_trials=20)
+            study.optimize(self.objective, n_trials=10)
 
             self.best_params = study.best_params
             with open(OPTUNA_PARAMS_PATH, "wb") as f:
